@@ -296,6 +296,11 @@ SimpleCan* CreateCanLib()
 	return (SimpleCan*) new SimpleCan_ESP32_DevC;
 }
 
+SimpleCan* CreateCanLib(gpio_num_t _TxPin, gpio_num_t _RxPin)
+{
+	return (SimpleCan*) new SimpleCan_ESP32_DevC(_TxPin, _RxPin);
+}
+
 SimpleCan_ESP32_DevC::SimpleCan_ESP32_DevC(gpio_num_t _TxPin, gpio_num_t _RxPin)
 {
     RxPin = _RxPin;

@@ -311,6 +311,7 @@ class SimpleCan
 // Class factory which creates a SimpleCan object for the correct platform.
 // There must be exactly one such function available.
 SimpleCan* CreateCanLib();
+SimpleCan* CreateCanLib(gpio_num_t _TxPin, gpio_num_t _RxPin);
 
 
 //*******************************************************************************************************
