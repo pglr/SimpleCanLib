@@ -40,7 +40,7 @@
 	#include "freertos/FreeRTOS.h"
 	#include "freertos/queue.h"
 #endif
-#include "ThreadSafeQueue.h"
+#include "common/ThreadSafeQueue.h"
 
 
 enum SCCanSpeed
