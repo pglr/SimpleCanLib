@@ -59,7 +59,7 @@ The definition of a CAN profile is closely tied to the actual application and th
 For our PingPong example the answers are easy, all devices are identical, so we only need one set of profile and broker class and we do not need specific addresses for devices (but they must be unique nevertheless). We simply start by defining a few CAN IDs which we will use as descriptors for the content of messages:
 
 
-````
+````C++
 #define CANID_PP_PING    1       // Message is "Ping"
 #define CANID_PP_PONG    2       // Message is "Pong"
 #define CANID_PP_FLOAT   3       // Message is a floating point value
@@ -68,7 +68,7 @@ For our PingPong example the answers are easy, all devices are identical, so we 
 
 The CAN bus defintion requires that no two devices can send messages with identical CAN IDs (otherwise bus arbitration may fail, which you might be willing to tolerate...). Therefore, in the example, each device is assigned a random device ID at startup. This Device ID is or'ed together with the above CAN IDs before sending messages. To make this easier, a few macros are defined in the profile header file:
 
-````
+````C++
 #define PP_MAKE_CAN_ID(Device, Message)     ((Device<<8) | Message) 
 #define PP_GET_MESSAGE_ID(CanID)            (CanID & 0xff)
 #define PP_GET_DEVICE_ID(CanID)             (CanID>>8)
@@ -76,7 +76,7 @@ The CAN bus defintion requires that no two devices can send messages with identi
 
 For example, if a device sends the message with ID CANID_PP_PING, the message will consist of the characters 'Ping'. The next step is to define the interface of the broker class, which reacts to incoming messages. It needs one pure virtual function for each message:
 
-````
+````C++
 class PingPongNotificationsFromCAN
 {
     public:
@@ -90,7 +90,7 @@ class PingPongNotificationsFromCAN
 And finally, we need to write our profile class, which needs to be derived from SimpleCANProfile. It has three main tasks, linking the broker, dispatching incoming messages to the broker and providing methods to send specific messages. In the constructor we link the broker with the profile, we implement the HandleCanMessage() function, which dispatches received messages to the broker class object. If the send functions provided by the base class SimpleCANProfile are sufficient for the project, those two are all you need. If not, you need to implement your own code for sending messages. If you follow the examples in SimpleCANProfile, that should be easy. Some data types however may require further considerations, see the section on float values below.
 
 
-````
+````C++
 class CANPingPong : public SimpleCANProfile
 {
     public:
@@ -147,7 +147,7 @@ class CANPingPong : public SimpleCANProfile
 Now, the profile definition is complete, safe it as a header file and include it in your main program. The next step is then to implement the broker class, which is derived from the PingPongNotificationsFromCAN class which we defined in our profile header file above. This class is pretty straight forward, just implement what you expect your program to do upon reveiving a certain message from the CAN bus. Note that these functions are called whenever you call CANDevice.Can1->Loop() (see further down, we'll come to that soon) in your program and that these functions are already completely decoupled from any interrupt service routines. Our example broker looks like this:
 
 
-````
+````C++
 #include "SimpleCAN.h"
 #include "PingPongCANProfile.h"
 
@@ -196,7 +196,7 @@ class RxFromCAN : public PingPongNotificationsFromCAN
 
 
 It is time now to create some objects which allow us to use the CAN bus. What we need is simply an instance of our broker class and an instance of the profile class. It goes like this:
-````
+````C++
 // Instantiation of the class which receives messages from the CAN bus.
 // This class depends on your application!
 RxFromCAN CANBroker;
@@ -205,12 +205,16 @@ RxFromCAN CANBroker;
 CANPingPong CANDevice(CreateCanLib(), &CANBroker);
 
 ````
+For the ESP32 you can use the CAN-Bus Controller on any IO PIN. To use other pins than default (TX=GPIO_NUM_5, RX=GPIO_NUM_35) you can set the pns like this:
+```C++
+CANPingPong CANDevice(CreateCanLib(TX=GPIO_NUM_5, RX=GPIO_NUM_6), &CANBroker);
+```
+
 These two objects can now be used in our setup and loop functions. In setup() we initialize SimipleCAN. If we activate the bus termination here as well depends on your bus topology and wether your device supports enabling/disabling bus termination by software (B-G431B-ESC1 does, ESP32 typically does not).
-````
+````C++
 void setup() 
 {
 	...
-	
 	CANDevice.Init();
 
 	// Set bus termination on/off (may not be available on all platforms).
@@ -218,12 +222,10 @@ void setup()
 }
 ````
 In the loop function finally we have to update the message queues on a regular basis. All incomming messages will be placed in the input queue automatically by the ISR and in the same way, all messages ready to be sent will be sent automatically, independent from  calling CANDevice.Can1->Loop(), but your broker class won't be called if you don't call this function.
-````
+````C++
 void loop()
 {
-
 	... 
-	
 	// Update message queues.
 	CANDevice.Can1->Loop();
 }
@@ -231,7 +233,7 @@ void loop()
 
 So far so good, we have everything set up to receive messages now and we have everything in place to send messages, but how do we send? That is easy, we simply call any of the send functions that we declared in our profile class. The example below will send the text "Ping", whenever it received "Pong". In addition, all 5 seconds a "Pong" will be sent without having received anything, since we need to get the game started somehow.
 
-````
+````C++
 void loop()
 {
 	static uint32_t LastAction=millis();
@@ -265,7 +267,7 @@ For RTR frames to work you need to apply the following patch to the Arduino STM3
 
 Note: In xxx\.platformio\packages\framework-arduinoststm32\system\Drivers\STM32G4xx_HAL_Driver\Src\stm32g4xx_hal_fdcan.c apply the following change (the if clause around the loop):
 
-````	
+````	C++
 Line 3493:
     for (ByteCounter = 0; ByteCounter < DLCtoBytes[pTxHeader->DataLength >> 16U]; ByteCounter += 4U)
     {
@@ -277,7 +279,7 @@ Line 3493:
     }
 ````
 -> Change to:
-````
+````C++
   if (!(pTxHeader->TxFrameType&&FDCAN_REMOTE_FRAME))
   {
     for (ByteCounter = 0; ByteCounter < DLCtoBytes[pTxHeader->DataLength >> 16U]; ByteCounter += 4U)
